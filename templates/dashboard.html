@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AnywhereUSB Camera Monitor</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: #0d0d0d;
+    color: #e0e0e0;
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  header {
+    background: #111;
+    border-bottom: 1px solid #222;
+    padding: 10px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+  }
+
+  header h1 {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #fff;
+    letter-spacing: 0.05em;
+  }
+
+  #overall-status {
+    font-size: 0.8rem;
+    padding: 3px 10px;
+    border-radius: 12px;
+    background: #1a3a1a;
+    color: #4ade80;
+    font-weight: 600;
+  }
+
+  .main {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+  }
+
+  /* Camera grid */
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    grid-template-rows: repeat(2, 1fr);
+    gap: 6px;
+    padding: 10px;
+    flex: 1;
+    overflow: hidden;
+  }
+
+  .cam-card {
+    background: #111;
+    border: 1px solid #222;
+    border-radius: 6px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    position: relative;
+  }
+
+  .cam-card.status-OK    { border-color: #1a3a1a; }
+  .cam-card.status-LENTO { border-color: #3a2a00; }
+  .cam-card.status-DESCONECTADA { border-color: #3a0f0f; }
+
+  .cam-card img {
+    width: 100%;
+    flex: 1;
+    object-fit: cover;
+    display: block;
+    min-height: 0;
+  }
+
+  .cam-footer {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 8px;
+    background: #0d0d0d;
+    font-size: 0.72rem;
+    flex-shrink: 0;
+  }
+
+  .cam-name {
+    font-weight: 600;
+    color: #aaa;
+    flex: 1;
+  }
+
+  .badge {
+    padding: 1px 7px;
+    border-radius: 10px;
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+  }
+
+  .badge-OK          { background: #166534; color: #4ade80; }
+  .badge-LENTO       { background: #78350f; color: #fbbf24; }
+  .badge-DESCONECTADA { background: #7f1d1d; color: #f87171; }
+
+  .cam-metrics {
+    display: flex;
+    gap: 8px;
+    color: #666;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .cam-metrics span { color: #aaa; }
+
+  /* Sidebar */
+  .sidebar {
+    width: 280px;
+    border-left: 1px solid #1e1e1e;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    flex-shrink: 0;
+  }
+
+  .sidebar-header {
+    padding: 10px 14px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #666;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    border-bottom: 1px solid #1e1e1e;
+    flex-shrink: 0;
+  }
+
+  .events-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 6px 0;
+  }
+
+  .event-item {
+    padding: 6px 14px;
+    border-bottom: 1px solid #1a1a1a;
+    font-size: 0.72rem;
+    line-height: 1.4;
+  }
+
+  .event-item:hover { background: #161616; }
+
+  .event-ts {
+    color: #444;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .event-cam { font-weight: 700; color: #888; margin: 0 4px; }
+
+  .event-type-CONEXION     { color: #4ade80; }
+  .event-type-DESCONEXION  { color: #f87171; }
+  .event-type-ESTADO_LENTO { color: #fbbf24; }
+  .event-type-ESTADO_OK    { color: #60a5fa; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>📷 AnywhereUSB · Camera Monitor</h1>
+  <div id="overall-status">CARGANDO...</div>
+</header>
+
+<div class="main">
+  <div class="grid" id="camera-grid">
+    {% for i in range(num_cameras) %}
+    <div class="cam-card" id="card-{{ i }}">
+      <img src="/stream/{{ i }}" alt="Cámara {{ i }}" loading="lazy">
+      <div class="cam-footer">
+        <span class="cam-name">CAM {{ i }}</span>
+        <span class="badge badge-DESCONECTADA" id="badge-{{ i }}">DESCONECTADA</span>
+        <span class="cam-metrics">
+          <span id="fps-{{ i }}">0.0</span> fps &nbsp;
+          <span id="bps-{{ i }}">0</span> kbps
+        </span>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+  <div class="sidebar">
+    <div class="sidebar-header">Eventos recientes</div>
+    <div class="events-list" id="events-list">
+      <div class="event-item" style="color:#444">Sin eventos aún...</div>
+    </div>
+  </div>
+</div>
+
+<script>
+const STATUS_CLASSES = ['status-OK', 'status-LENTO', 'status-DESCONECTADA'];
+
+async function refreshStats() {
+  try {
+    const res = await fetch('/api/stats');
+    const stats = await res.json();
+    let allOk = true;
+    let anyDisc = false;
+
+    stats.forEach(cam => {
+      const card  = document.getElementById(`card-${cam.id}`);
+      const badge = document.getElementById(`badge-${cam.id}`);
+      const fps   = document.getElementById(`fps-${cam.id}`);
+      const bps   = document.getElementById(`bps-${cam.id}`);
+
+      STATUS_CLASSES.forEach(c => card.classList.remove(c));
+      card.classList.add(`status-${cam.status}`);
+
+      badge.className = `badge badge-${cam.status}`;
+      badge.textContent = cam.status;
+      fps.textContent  = cam.fps.toFixed(1);
+      bps.textContent  = cam.bitrate_kbps.toFixed(0);
+
+      if (cam.status !== 'OK') allOk = false;
+      if (cam.status === 'DESCONECTADA') anyDisc = true;
+    });
+
+    const el = document.getElementById('overall-status');
+    if (anyDisc) {
+      el.style.background = '#3a0f0f'; el.style.color = '#f87171';
+      el.textContent = 'PROBLEMA DETECTADO';
+    } else if (!allOk) {
+      el.style.background = '#3a2a00'; el.style.color = '#fbbf24';
+      el.textContent = 'ADVERTENCIA';
+    } else {
+      el.style.background = '#1a3a1a'; el.style.color = '#4ade80';
+      el.textContent = 'TODAS OK';
+    }
+  } catch(e) { console.error('Stats error:', e); }
+}
+
+async function refreshEvents() {
+  try {
+    const res = await fetch('/api/events');
+    const events = await res.json();
+    const list = document.getElementById('events-list');
+    if (!events.length) return;
+
+    list.innerHTML = events.map(ev => {
+      const ts = ev.timestamp.replace('T', ' ').substring(0, 19);
+      const typeClass = `event-type-${ev.event_type}`;
+      return `<div class="event-item">
+        <span class="event-ts">${ts}</span>
+        <span class="event-cam">CAM${ev.camera_id}</span>
+        <span class="${typeClass}">${ev.event_type}</span>
+        ${ev.detail ? `<span style="color:#555"> · ${ev.detail}</span>` : ''}
+      </div>`;
+    }).join('');
+  } catch(e) { console.error('Events error:', e); }
+}
+
+// Polling
+refreshStats();
+refreshEvents();
+setInterval(refreshStats,  2000);
+setInterval(refreshEvents, 5000);
+</script>
+
+</body>
+</html>
