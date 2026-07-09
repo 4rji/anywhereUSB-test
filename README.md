@@ -1,3 +1,24 @@
+
+## Dashboard Preview
+
+<p>
+  <img src="assets/dashboard_50.webp" alt="Camera monitor dashboard preview" width="50%" />
+</p>
+
+
+## Photos
+
+The images below show the physical camera setup.
+
+<p>
+  <img src="assets/IMG_1295_50.webp" alt="Camera setup photo 1" width="40%" />
+</p>
+
+<p>
+  <img src="assets/IMG_1296_50.webp" alt="Camera setup photo 2" width="40%" />
+</p>
+
+
 # AnywhereUSB Camera Monitor
 
 This project captures frames from 7 USB cameras and serves them in real time through a Flask server. Each camera runs in its own thread so capture stays parallel and does not block the rest of the system.
@@ -67,20 +88,3 @@ NUM_CAMERAS = 7
 | `templates/dashboard.html` | Browser dashboard UI |
 | `camera_setup.md` | Detailed technical reference |
 
-## Photos
-
-The images below show the physical camera setup. They are displayed at 50% width.
-
-<p>
-  <img src="assets/IMG_1295_50.webp" alt="Camera setup photo 1" width="50%" />
-</p>
-
-<p>
-  <img src="assets/IMG_1296_50.webp" alt="Camera setup photo 2" width="50%" />
-</p>
-
-## Dashboard Preview
-
-<p>
-  <img src="assets/dashboard_50.webp" alt="Camera monitor dashboard preview" width="50%" />
-</p>
