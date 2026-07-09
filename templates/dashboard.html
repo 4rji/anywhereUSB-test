@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -71,8 +71,8 @@
   }
 
   .cam-card.status-OK    { border-color: #1a3a1a; }
-  .cam-card.status-LENTO { border-color: #3a2a00; }
-  .cam-card.status-DESCONECTADA { border-color: #3a0f0f; }
+  .cam-card.status-SLOW { border-color: #3a2a00; }
+  .cam-card.status-DISCONNECTED { border-color: #3a0f0f; }
 
   .cam-card img {
     width: 100%;
@@ -107,8 +107,8 @@
   }
 
   .badge-OK          { background: #166534; color: #4ade80; }
-  .badge-LENTO       { background: #78350f; color: #fbbf24; }
-  .badge-DESCONECTADA { background: #7f1d1d; color: #f87171; }
+  .badge-SLOW       { background: #78350f; color: #fbbf24; }
+  .badge-DISCONNECTED { background: #7f1d1d; color: #f87171; }
 
   .cam-metrics {
     display: flex;
@@ -162,27 +162,27 @@
 
   .event-cam { font-weight: 700; color: #888; margin: 0 4px; }
 
-  .event-type-CONEXION     { color: #4ade80; }
-  .event-type-DESCONEXION  { color: #f87171; }
-  .event-type-ESTADO_LENTO { color: #fbbf24; }
-  .event-type-ESTADO_OK    { color: #60a5fa; }
+  .event-type-CONNECTION   { color: #4ade80; }
+  .event-type-DISCONNECTION { color: #f87171; }
+  .event-type-STATUS_SLOW  { color: #fbbf24; }
+  .event-type-STATUS_OK    { color: #60a5fa; }
 </style>
 </head>
 <body>
 
 <header>
   <h1>📷 AnywhereUSB · Camera Monitor</h1>
-  <div id="overall-status">CARGANDO...</div>
+  <div id="overall-status">LOADING...</div>
 </header>
 
 <div class="main">
   <div class="grid" id="camera-grid">
     {% for i in range(num_cameras) %}
     <div class="cam-card" id="card-{{ i }}">
-      <img src="/stream/{{ i }}" alt="Cámara {{ i }}" loading="lazy">
+      <img src="/stream/{{ i }}" alt="Camera {{ i }}" loading="lazy">
       <div class="cam-footer">
         <span class="cam-name">CAM {{ i }}</span>
-        <span class="badge badge-DESCONECTADA" id="badge-{{ i }}">DESCONECTADA</span>
+        <span class="badge badge-DISCONNECTED" id="badge-{{ i }}">DISCONNECTED</span>
         <span class="cam-metrics">
           <span id="fps-{{ i }}">0.0</span> fps &nbsp;
           <span id="bps-{{ i }}">0</span> kbps
@@ -193,15 +193,15 @@
   </div>
 
   <div class="sidebar">
-    <div class="sidebar-header">Eventos recientes</div>
+    <div class="sidebar-header">Recent events</div>
     <div class="events-list" id="events-list">
-      <div class="event-item" style="color:#444">Sin eventos aún...</div>
+      <div class="event-item" style="color:#444">No events yet...</div>
     </div>
   </div>
 </div>
 
 <script>
-const STATUS_CLASSES = ['status-OK', 'status-LENTO', 'status-DESCONECTADA'];
+const STATUS_CLASSES = ['status-OK', 'status-SLOW', 'status-DISCONNECTED'];
 
 async function refreshStats() {
   try {
@@ -225,19 +225,19 @@ async function refreshStats() {
       bps.textContent  = cam.bitrate_kbps.toFixed(0);
 
       if (cam.status !== 'OK') allOk = false;
-      if (cam.status === 'DESCONECTADA') anyDisc = true;
+      if (cam.status === 'DISCONNECTED') anyDisc = true;
     });
 
     const el = document.getElementById('overall-status');
     if (anyDisc) {
       el.style.background = '#3a0f0f'; el.style.color = '#f87171';
-      el.textContent = 'PROBLEMA DETECTADO';
+      el.textContent = 'ISSUE DETECTED';
     } else if (!allOk) {
       el.style.background = '#3a2a00'; el.style.color = '#fbbf24';
-      el.textContent = 'ADVERTENCIA';
+      el.textContent = 'WARNING';
     } else {
       el.style.background = '#1a3a1a'; el.style.color = '#4ade80';
-      el.textContent = 'TODAS OK';
+      el.textContent = 'ALL OK';
     }
   } catch(e) { console.error('Stats error:', e); }
 }

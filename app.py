@@ -15,13 +15,13 @@ def _mjpeg_generator(camera_id: int):
                 b"Content-Type: image/jpeg\r\n\r\n" + frame + b"\r\n"
             )
         else:
-            # Placeholder negro cuando no hay señal
+            # Black placeholder when the camera is offline
             import numpy as np
             import cv2
             blank = np.zeros((480, 640, 3), dtype=np.uint8)
             cv2.putText(
                 blank,
-                f"CAM {camera_id} - SIN SEÑAL",
+                f"CAM {camera_id} - NO SIGNAL",
                 (120, 240),
                 cv2.FONT_HERSHEY_SIMPLEX,
                 1,
@@ -44,7 +44,7 @@ def index():
 @app.route("/stream/<int:camera_id>")
 def stream(camera_id: int):
     if camera_id < 0 or camera_id >= camera_manager.NUM_CAMERAS:
-        return "Cámara inválida", 404
+        return "Invalid camera", 404
     return Response(
         _mjpeg_generator(camera_id),
         mimetype="multipart/x-mixed-replace; boundary=frame",
@@ -68,5 +68,5 @@ def history(camera_id: int):
 
 if __name__ == "__main__":
     camera_manager.start_all()
-    print("Dashboard disponible en http://localhost:5000")
+    print("Dashboard available at http://localhost:5000")
     app.run(host="0.0.0.0", port=5000, threaded=True)

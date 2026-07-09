@@ -6,12 +6,12 @@ from dataclasses import dataclass, field
 from typing import Optional
 import db
 
-NUM_CAMERAS = 8
-# Umbral para considerar la cámara "lenta" (caída de fps > 30%)
+NUM_CAMERAS = 7
+# Threshold for considering a camera slow (FPS drop > 30%)
 FPS_DROP_THRESHOLD = 0.30
-# Segundos sin frame antes de marcar como desconectada
+# Seconds without a frame before marking the camera disconnected
 DISCONNECT_TIMEOUT = 3.0
-# Intervalo para guardar métricas en DB
+# Interval for saving metrics to the database
 METRICS_SAVE_INTERVAL = 10
 
 
@@ -22,7 +22,7 @@ class CameraState:
     frame: Optional[bytes] = None
     fps: float = 0.0
     bitrate_kbps: float = 0.0
-    status: str = "DESCONECTADA"
+    status: str = "DISCONNECTED"
     baseline_fps: float = 0.0
     last_frame_time: float = 0.0
     lock: threading.Lock = field(default_factory=threading.Lock)
@@ -42,7 +42,7 @@ def _camera_thread(state: CameraState):
     frame_times = []
 
     while True:
-        # Intentar abrir si no está abierta
+        # Try to open the camera if it is not already open
         if state.cap is None or not state.cap.isOpened():
             cap = cv2.VideoCapture(state.camera_id, cv2.CAP_DSHOW)
             cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
@@ -51,16 +51,16 @@ def _camera_thread(state: CameraState):
                 state.cap = cap
                 state.last_frame_time = time.time()
                 if prev_status != "OK":
-                    db.save_event(state.camera_id, "CONEXION", "Cámara conectada")
+                    db.save_event(state.camera_id, "CONNECTION", "Camera connected")
             else:
                 cap.release()
                 with state.lock:
-                    state.status = "DESCONECTADA"
+                    state.status = "DISCONNECTED"
                     state.fps = 0.0
                     state.bitrate_kbps = 0.0
-                    if prev_status != "DESCONECTADA":
-                        db.save_event(state.camera_id, "DESCONEXION", "No se pudo abrir")
-                        prev_status = "DESCONECTADA"
+                    if prev_status != "DISCONNECTED":
+                        db.save_event(state.camera_id, "DISCONNECTION", "Unable to open camera")
+                        prev_status = "DISCONNECTED"
                 time.sleep(2)
                 continue
 
@@ -73,13 +73,13 @@ def _camera_thread(state: CameraState):
                 state.cap.release()
                 state.cap = None
                 with state.lock:
-                    state.status = "DESCONECTADA"
+                    state.status = "DISCONNECTED"
                     state.fps = 0.0
                     state.bitrate_kbps = 0.0
                     state.frame = None
-                if prev_status != "DESCONECTADA":
-                    db.save_event(state.camera_id, "DESCONEXION", f"Sin frames por {DISCONNECT_TIMEOUT}s")
-                    prev_status = "DESCONECTADA"
+                if prev_status != "DISCONNECTED":
+                    db.save_event(state.camera_id, "DISCONNECTION", f"No frames for {DISCONNECT_TIMEOUT}s")
+                    prev_status = "DISCONNECTED"
             time.sleep(0.1)
             continue
 
@@ -87,7 +87,7 @@ def _camera_thread(state: CameraState):
         encoded = _encode_frame(frame)
         frame_size_kb = len(encoded) / 1024
 
-        # Calcular FPS con ventana deslizante de 30 frames
+        # Calculate FPS with a sliding 30-frame window
         frame_times.append(now)
         if len(frame_times) > 30:
             frame_times.pop(0)
@@ -97,15 +97,15 @@ def _camera_thread(state: CameraState):
         else:
             fps = 0.0
 
-        # Establecer baseline en los primeros 60 frames
+        # Establish a baseline after the first 30 stable frames
         if state.baseline_fps == 0.0 and fps > 0 and len(frame_times) >= 30:
             state.baseline_fps = fps
 
         bitrate = fps * frame_size_kb * 8  # kbps
 
-        # Determinar estado
+        # Determine status
         if state.baseline_fps > 0 and fps < state.baseline_fps * (1 - FPS_DROP_THRESHOLD):
-            status = "LENTO"
+            status = "SLOW"
         else:
             status = "OK"
 
@@ -115,12 +115,12 @@ def _camera_thread(state: CameraState):
             state.bitrate_kbps = round(bitrate, 1)
             state.status = status
 
-        # Guardar evento si cambia el estado
+        # Save an event when the status changes
         if status != prev_status and prev_status is not None:
-            db.save_event(state.camera_id, f"ESTADO_{status}", f"fps={fps:.1f}")
+            db.save_event(state.camera_id, f"STATUS_{status}", f"fps={fps:.1f}")
         prev_status = status
 
-        # Guardar métricas en DB cada METRICS_SAVE_INTERVAL segundos
+        # Save metrics to the database every METRICS_SAVE_INTERVAL seconds
         if now - last_save >= METRICS_SAVE_INTERVAL:
             db.save_metrics(state.camera_id, fps, bitrate, status)
             last_save = now

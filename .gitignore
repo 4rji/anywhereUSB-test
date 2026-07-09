@@ -1,0 +1,6 @@
+.DS_Store
+.atl/skill-registry.md
+.atl/.skill-registry.cache.json
+__pycache__/app.cpython-314.pyc
+__pycache__/camera_manager.cpython-314.pyc
+__pycache__/db.cpython-314.pyc
